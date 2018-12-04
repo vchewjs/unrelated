@@ -10,9 +10,7 @@
               <i :class="`fa fa-${item.icon}`"></i>
             </a>
           </div>
-
           <br>
-
           <span v-html="designer"></span>
         </div>
 

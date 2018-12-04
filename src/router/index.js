@@ -5,8 +5,8 @@ import routes from './routes'
 Vue.use(Router)
 
 const router = new Router({
-    mode: 'history',
-    routes
+  mode: 'history',
+  routes
 })
 // 全局前置守卫
 router.beforeEach((to, from, next) => {

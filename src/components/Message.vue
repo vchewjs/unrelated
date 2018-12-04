@@ -1,13 +1,15 @@
 <template>
   <div v-show="show" :class="`alert alert-${type} alert-dismissible`">
-    <button @click="close" type="button" class="close"><span>×</span></button>
+    <button @click="close" type="button" class="close">
+      <span>×</span>
+    </button>
     {{ msg }}
   </div>
 </template>
 
 <script>
 export default {
-  name: 'Message',
+  name: "Message",
   props: {
     // 是否显示消息框
     show: {
@@ -17,31 +19,30 @@ export default {
     // 消息框的类型
     type: {
       type: String,
-      default: 'success'
+      default: "success"
     },
     // 消息
     msg: {
       type: String,
-      default: ''
+      default: ""
     }
   },
   watch: {
     show(value) {
       if (value) {
         this.$nextTick(() => {
-          this.$el.scrollIntoView(true)
-        })
+          this.$el.scrollIntoView(true);
+        });
       }
     }
   },
   methods: {
     close() {
-      this.$emit('update:show', false)
+      this.$emit("update:show", false);
     }
   }
-}
+};
 </script>
 
 <style scoped>
-
 </style>
