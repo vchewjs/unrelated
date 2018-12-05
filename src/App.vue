@@ -42,4 +42,5 @@ $fa-font-path: "~font-awesome/fonts/";
 @import "./styles/main";
 @import "./styles/extra";
 @import 'simplemde/dist/simplemde.min.css';
+@import "animate.css/animate.min.css";
 </style>
