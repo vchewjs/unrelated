@@ -6,6 +6,8 @@
           <h1 class="text-center">{{ title }}</h1>
           <div class="article-meta text-center">
             <i class="fa fa-clock-o"></i>
+            <!-- 创建时间 -->
+            <abbr>{{ date | moment('from') }}</abbr>
           </div>
           <div class="entry-content">
             <div class="content-body entry-content panel-body">
@@ -26,7 +28,8 @@ export default {
   data() {
     return {
       title: "", // 文章标题
-      content: "" // 文章内容
+      content: "", // 文章内容
+      date: "" // 创建时间
     };
   },
   created() {
@@ -34,14 +37,14 @@ export default {
     const article = this.$store.getters.getArticleById(articleId);
 
     if (article) {
-      let { title, content } = article;
+      let { title, content, date } = article;
 
       this.title = title;
       this.content = SimpleMDE.prototype.markdown(content);
+      this.date = date;
 
       this.$nextTick(() => {
-        this.$el.querySelectorAll("pre code").forEach(el => {
-        });
+        this.$el.querySelectorAll("pre code").forEach(el => {});
       });
     }
   }
