@@ -62,7 +62,7 @@
     <div class="col-md-3 side-bar">
       <div class="panel panel-default corner-radius sidebar-resources">
         <div class="panel-body" style="min-height: 84px;">
-          <div class="media">
+          <div class="media" v-show="local">
             <div class="avatar pull-left" v-if="user">
               <router-link :to="`/${user.name}`">
                 <img v-if="user.avatar" :src="user.avatar" class="avatar-topnav" style="width:48px;height:48px;">
@@ -82,10 +82,26 @@
               </div>
             </div>
           </div>
+          <div class="media" v-show="!local">
+            <div class="avatar pull-left" v-if="user">
+              <router-link to="/auth/login">
+                <img v-if="user.avatar" src="https://vuejscaffcdn.phphub.org/uploads/avatars/1089_1541052838.png?imageView2/1/w/100/h/100" class="avatar-topnav" style="width:48px;height:48px;">
+              </router-link>
+            </div>
+
+            <div class="details">
+              <div class="media-right" style="padding-top: 12px;">
+                <router-link  to="/auth/login">
+                  <span>请登陆</span>
+                </router-link>
+              </div>
+            </div>
+          </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+
 </template>
 
 <script>
@@ -100,6 +116,7 @@ export default {
       msgShow: false,
       articles: [],
       filter: "default",
+      local:false,
       filters: [
         { filter: "default", name: "活跃", title: "最后回复排序" },
         { filter: "excellent", name: "精华", title: "只看加精的话题" },
@@ -114,7 +131,7 @@ export default {
   beforeRouteEnter(to, from, next) {
     const fromName = from.name;
     const logout = to.params.logout;
-
+    
     next(vm => {
       if (vm.$store.state.auth) {
         switch (fromName) {
@@ -177,7 +194,7 @@ export default {
       // 在查询参数中混入 page，并跳转到该地址
       // 混入部分等价于 Object.assign({}, this.$route.query, { page: page })
       this.$router.push({ query: { ...this.$route.query, page } });
-    }
+    },
   }
 };
 </script>
