@@ -45,13 +45,123 @@
           <div class="user-lists">
             <span v-for="likeUser in likeUsers">
               <!-- 点赞用户是当前用户时，加上类 animated 和 swing 以显示一个特别的动画  -->
-              <img :src="this.user && this.user.avatar" class="img-thumbnail avatar avatar-middle" :class="{ 'animated swing' : likeUser.uid === 1 }"
-              >
+              <router-link :to="`/${likeUser.uname}`" :src="likeUser.uavatar" tag="img" class="img-thumbnail avatar avatar-middle" :class="{ 'animated swing' : likeUser.uid === 1 }"></router-link>
             </span>
           </div>
           <div v-if="!likeUsers.length" class="vote-hint">成为第一个点赞的人吧 ?</div>
         </div>
       </div>
+    </div>
+    <!-- 打赏弹窗 -->
+    <Modal :show.sync="showQrcode" class="text-center">
+      <div v-if="user" slot="title">
+        <img :src="user.avatar" class="img-thumbnail avatar" width="48">
+      </div>
+      <div>
+        <p class="text-md">如果你想学习更多前端的知识，gcxxx.cn【龟丞相】 是个不错的开始</p>
+        <div class="payment-qrcode inline-block">
+          <h5>扫一扫打开 gcxxx.cn【龟丞相】</h5>
+          <p>
+            <img
+              src="https://vuejscaffcdn.phphub.org/uploads/images/201803/25/2/g3CFVs0h7B.jpeg?imageView2/2/w/1024/h/0"
+              width="160"
+            >
+          </p>
+        </div>
+      </div>
+      <div slot="footer">
+        <div class="text-center">祝你学习愉快 :)</div>
+      </div>
+    </Modal>
+    <!-- 评论列表 -->
+    <div class="replies panel panel-default list-panel replies-index">
+      <div class="panel-heading">
+        <div class="total">
+          回复数量:
+          <b>{{ comments.length }}</b>
+        </div>
+      </div>
+      <div class="panel-body">
+        <transition-group id="reply-list" name="fade" tag="ul" class="list-group row">
+          <li
+            v-for="(comment, index) in comments"
+            :key="comment.commentId"
+            class="list-group-item media"
+          >
+            <div class="avatar avatar-container pull-left">
+              <router-link :to="`/${comment.uname}`">
+                <img :src="comment.uavatar" class="media-object img-thumbnail avatar avatar-middle">
+              </router-link>
+            </div>
+            <div class="infos">
+              <div class="media-heading">
+                <router-link
+                  :to="`/${comment.uname}`"
+                  class="remove-padding-left author rm-link-color"
+                >{{ comment.uname }}</router-link>
+                <!-- 编辑删除图标 -->
+                <span v-if="auth" class="operate pull-right">
+                  <span v-if="comment.uid === 1">
+                    <a href="javascript:;" @click="editComment(comment.commentId, index)">
+                      <i class="fa fa-edit"></i>
+                    </a>
+                    <span>⋅</span>
+                    <a href="javascript:;" @click="deleteComment(comment.commentId)">
+                      <i class="fa fa-trash-o"></i>
+                    </a>
+                  </span>
+                </span>
+                <div class="meta">
+                  <a
+                    :id="`reply${index + 1}`"
+                    :href="`#reply${index + 1}`"
+                    class="anchor"
+                  >#{{ index + 1 }}</a>
+                  <span>⋅</span>
+                  <abbr class="timeago">{{ comment.date | moment('from', { startOf: 'second' }) }}</abbr>
+                </div>
+              </div>
+
+              <div class="preview media-body markdown-reply markdown-body" v-html="comment.content"></div>
+            </div>
+          </li>
+        </transition-group>
+        <div v-show="!comments.length" class="empty-block">暂无评论~~</div>
+      </div>
+    </div>
+    <!-- 评论框 -->
+    <div id="reply-box" class="reply-box form box-block">
+      <div class="form-group comment-editor">
+        <textarea v-if="auth" id="editor"></textarea>
+        <textarea
+          v-else
+          disabled
+          class="form-control"
+          placeholder="需要登录后才能发表评论."
+          style="height:172px"
+        ></textarea>
+      </div>
+      <div class="form-group reply-post-submit">
+        <button
+          id="reply-btn"
+          :disabled="!auth"
+          @click="comment"
+          class="btn btn-primary"
+        >{{ commentId ? '保存编辑' : '回复' }}</button>
+        <span
+          v-show="commentId"
+          class="help-inline btn-cancel"
+          style="cursor:pointer"
+          @click="cancelEditComment"
+        >取消编辑</span>
+        <span v-show="!commentId" class="help-inline">Ctrl+Enter</span>
+      </div>
+      <div
+        v-show="commentHtml"
+        id="preview-box"
+        class="box preview markdown-body"
+        v-html="commentHtml"
+      ></div>
     </div>
   </div>
 </template>
@@ -69,7 +179,11 @@ export default {
       date: "", // 文章创建时间
       uid: 1, // 用户 ID
       likeUsers: [], // 点赞用户列表
-      likeClass: "" // 点赞样式
+      likeClass: "", // 点赞样式
+      showQrcode: false, // 是否显示打赏弹窗
+      commentHtml: "", // 评论 HTML
+      comments: [], // 评论列表
+      commentId: undefined // 评论 ID
     };
   },
   // 添加计算属性
@@ -82,7 +196,7 @@ export default {
     const article = this.$store.getters.getArticleById(articleId);
 
     if (article) {
-      let { uid, title, content, date, likeUsers } = article;
+      let { uid, title, content, date, likeUsers, comments } = article;
       this.uid = uid;
       this.title = title;
       this.content = SimpleMDE.prototype.markdown(content);
@@ -93,12 +207,52 @@ export default {
       this.likeClass = this.likeUsers.some(likeUser => likeUser.uid === 1)
         ? "active"
         : "";
-
+      this.renderComments(comments);
       this.$nextTick(() => {
         this.$el.querySelectorAll("pre code").forEach(el => {});
       });
     }
     this.articleId = articleId;
+  },
+  mounted() {
+    // 已登录时，才开始创建
+    if (this.auth) {
+      const simplemde = new SimpleMDE({
+        element: document.querySelector("#editor"),
+        placeholder:
+          "请使用 Markdown 格式书写 ;-)，代码片段黏贴时请注意使用高亮语法。",
+        spellChecker: false,
+        autoDownloadFontAwesome: false,
+        // 不显示工具栏
+        toolbar: false,
+        // 不显示状态栏
+        status: false,
+        renderingConfig: {
+          codeSyntaxHighlighting: true
+        }
+      });
+
+      // 内容改变监听
+      simplemde.codemirror.on("change", () => {
+        // 更新 commentMarkdown 为编辑器的内容
+        this.commentMarkdown = simplemde.value();
+      });
+
+      // 按键松开监听
+      simplemde.codemirror.on("keyup", (codemirror, event) => {
+        // 使用 Ctrl+Enter 时提交评论
+        if (event.ctrlKey && event.keyCode === 13) {
+          this.comment();
+        } else if (this.commentId && event.keyCode === 27) {
+          // 存在 commentId，且按下 Esc 键时
+          // 取消编辑评论
+          this.cancelEditComment();
+        }
+      });
+
+      // 将编辑器添加到当前实例
+      this.simplemde = simplemde;
+    }
   },
   methods: {
     // 编辑文章
@@ -121,40 +275,167 @@ export default {
       });
     },
     like(e) {
-      // 未登录时，提示登录
-      if (!this.auth) {
-        this.$swal({
-          text: "需要登录以后才能执行此操作。",
-          confirmButtonText: "前往登录"
-        }).then(res => {
-          if (res.value) {
-            this.$router.push("/auth/login");
-          }
-        });
-      } else {
-        const target = e.target
-        // 点赞按钮是否含有 active 类，我们用它来判断是否已赞
-        const active = target.classList.contains("active");
-        const articleId = this.articleId;
+  if (!this.auth) {
+    this.$swal({
+      text: '需要登录以后才能执行此操作。',
+      confirmButtonText: '前往登录'
+    }).then((res) => {
+      if (res.value) {
+        this.$router.push('/auth/login')
+      }
+    })
+  } else {
+    const target = e.currentTarget
+    const active = target.classList.contains('active')
+    const articleId = this.articleId
 
-        if (active) {
-          // 清除已赞样式
-          this.likeClass = "";
-          // 分发 like 事件取消赞，更新实例的 likeUsers 为返回的值
-          this.$store.dispatch("like", { articleId }).then(likeUsers => {
-            this.likeUsers = likeUsers;
-          });
+    if (active) {
+      this.likeClass = ''
+      this.$store.dispatch('like', { articleId }).then((likeUsers) => {
+        // 使用带用户信息的点赞用户
+        this.likeUsers = this.recompute('likeUsers')
+      })
+    } else {
+      this.likeClass = 'active animated rubberBand'
+        this.$store.dispatch('like', { articleId, isAdd: true }).then((likeUsers) => {
+        // 使用带用户信息的点赞用户
+        this.likeUsers = this.recompute('likeUsers')
+      })
+    }
+  }
+},
+    comment() {
+      // 编辑器的内容不为空时
+      if (this.commentMarkdown && this.commentMarkdown.trim() !== "") {
+        // 分发 comment 事件以提交评论
+        this.$store
+          .dispatch("comment", {
+            comment: { content: this.commentMarkdown },
+            articleId: this.articleId,
+            commentId: this.commentId
+          })
+          .then(this.renderComments);
+        if (this.commentId) {
+          // 有 commentId 时，取消编辑评论
+          this.cancelEditComment();
         } else {
-          // 添加已赞样式
-          this.likeClass = "active animated rubberBand";
-          // 分发 like 事件，传入 isAdd 参数点赞，更新实例的 likeUsers 为返回的值
-          
+          // 没有 commentId 时，写入原来的逻辑
+          this.simplemde.value("");
+          document.querySelector("#reply-btn").focus();
+
+          this.$nextTick(() => {
+            const lastComment = document.querySelector(
+              "#reply-list li:last-child"
+            );
+            if (lastComment) lastComment.scrollIntoView(true);
+          });
         }
       }
+    },
+    renderComments(comments) {
+  if (Array.isArray(comments)) {
+    // 使用带用户信息的评论
+    comments = this.recompute('comments')
+    const newComments = comments.map(comment => ({ ...comment }))
+    const user = this.user || {}
+
+    for (let comment of newComments) {
+      // 这里删除了 uname 和 uavatar 的重新赋值，因为已经有这两个数据了
+      comment.content = SimpleMDE.prototype.markdown(emoji.emojify(comment.content, name => name))
     }
+
+    this.comments = newComments
+    this.commentsMarkdown = comments
+  }
+},
+    // 编辑评论
+    editComment(commentId, commentIndex) {
+      // 编辑器
+      const simplemde = this.simplemde;
+      // 编辑器
+      const codemirror = simplemde.codemirror;
+      // Markdown 格式的所有评论
+      const comments = this.commentsMarkdown;
+
+      for (const comment of comments) {
+        // 找到与 commentId 对应的评论时
+        if (parseInt(comment.commentId) === parseInt(commentId)) {
+          // 设置编辑器的内容
+          simplemde.value(comment.content);
+          // 使编辑器获得焦点
+          codemirror.focus();
+          // 将光标移到内容的后面
+          codemirror.setCursor(codemirror.lineCount(), 0);
+          // 评论索引 + 1，用来指示页面滚动的位置
+          this.commentIndex = commentIndex + 1;
+          // 更新 commentId
+          this.commentId = commentId;
+          break;
+        }
+      }
+    },
+    // 取消编辑评论
+    cancelEditComment() {
+      // 清除 commentId
+      this.commentId = undefined;
+      // 清空编辑器
+      this.simplemde.value("");
+
+      // 下次 DOM 更新后，将评论滚动回视图的顶部
+      this.$nextTick(() => {
+        if (this.commentIndex === undefined) return;
+        const currentComment = document.querySelector(
+          `#reply-list li:nth-child(${this.commentIndex})`
+        );
+
+        if (currentComment) {
+          currentComment.scrollIntoView(true);
+          currentComment.querySelector(".operate a").focus();
+        }
+      });
+    },
+    // 删除评论
+    deleteComment(commentId) {
+      this.$swal({
+        text: "你确定要删除此评论吗?",
+        confirmButtonText: "删除"
+      }).then(res => {
+        if (res.value) {
+          // 此时不用传入 comment
+          this.$store
+            .dispatch("comment", {
+              commentId,
+              articleId: this.articleId
+            })
+            .then(this.renderComments);
+          this.cancelEditComment();
+        }
+      });
+    },
+    // 返回带用户信息的文章的某项属性
+recompute(key) {
+  const articleId = this.$route.params.articleId
+  // 这里的文章是基于 getters.computedArticles 的，所以包含用户信息了
+  const article = this.$store.getters.getArticleById(articleId)
+  let arr
+
+  if (article) {
+    arr = article[key]
+  }
+
+  return arr || []
+},
   }
 };
 </script>
 
 <style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 1s;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
+}
 </style>
