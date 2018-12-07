@@ -341,7 +341,7 @@ export default {
 
     for (let comment of newComments) {
       // 这里删除了 uname 和 uavatar 的重新赋值，因为已经有这两个数据了
-      comment.content = SimpleMDE.prototype.markdown(emoji.emojify(comment.content, name => name))
+      comment.content = SimpleMDE.prototype.markdown
     }
 
     this.comments = newComments
